@@ -1,59 +1,53 @@
 # 共通ワークフローの表示名。
 # 呼び出し元の実行ログ上でも、この名前で識別される。
-name: Reusable CodeQL for Java and Kotlin
+name: Reusable CodeQL for Java with Gradle
 
 on:
   # reusable workflow として他リポジトリから呼び出せるようにする。
   workflow_call:
     inputs:
       # 解析ジョブを動かす GitHub-hosted runner の種類。
-      # 必要に応じて ubuntu-latest 以外へ差し替えられるよう入力化している。
       runs-on:
         description: Runner image used for the analysis job.
         required: false
         type: string
         default: ubuntu-latest
       # ビルドと解析で使う Java のバージョン。
-      # リポジトリごとの JDK 要件差異を吸収するため入力化している。
       java-version:
         description: Java version used for build and analysis.
         required: false
         type: string
         default: '17'
       # actions/setup-java に渡す JDK ディストリビューション。
-      # Temurin 以外を使いたい場合にも共通ワークフローを流用できる。
       java-distribution:
         description: JDK distribution passed to actions/setup-java.
         required: false
         type: string
         default: temurin
       # CodeQL が初期化する解析対象言語。
-      # Java/Kotlin 用ワークフローだが、呼び出し側で明示上書きできるようにしている。
+      # この共通ワークフロー名は Java Gradle 向けとしているため、既定値は java にしている。
+      # Kotlin を含むリポジトリでは呼び出し元から java-kotlin を明示する。
       codeql-language:
         description: CodeQL language pack to initialize.
         required: false
         type: string
-        default: java-kotlin
-      # CodeQL 初期化後に実行するビルドコマンド。
-      # Java/Kotlin では手動ビルドが必要になるため必須入力としている。
+        default: java
+      # CodeQL 初期化後に実行する Gradle コマンド。
+      # リポジトリごとに build / bootJar などが異なるため必須入力としている。
       build-command:
-        description: Command executed between init and analyze for manual builds.
+        description: Gradle command executed between init and analyze.
         required: true
         type: string
 
 jobs:
   # CodeQL 解析を実行する本体ジョブ。
   analyze:
-    # ジョブ名。Actions 画面に表示される。
     name: Analyze
-    # 呼び出し元から渡された runner 上でジョブを実行する。
     runs-on: ${{ inputs.runs-on }}
 
     # CodeQL 実行に必要な最小限の権限。
     permissions:
-      # リポジトリ内容の checkout に必要。
       contents: read
-      # Code scanning alerts へ解析結果をアップロードするために必要。
       security-events: write
 
     steps:
@@ -80,11 +74,11 @@ jobs:
           languages: ${{ inputs.codeql-language }}
           build-mode: manual
 
-      # 呼び出し元リポジトリ固有のビルド手順を実行する。
-      # ここで得られる型情報や依存解決結果が CodeQL の解析精度に影響する。
+      # 呼び出し元リポジトリ固有の Gradle ビルド手順を実行する。
       - name: Build application
         run: ${{ inputs.build-command }}
 
       # CodeQL 解析を実行し、結果を GitHub の code scanning へ送信する。
       - name: Analyze with CodeQL
         uses: github/codeql-action/analyze@v4
+
