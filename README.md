@@ -25,7 +25,7 @@ GitHub Actions ワークフロー定義です。
 ### Kotlin + Gradle 用サンプル
 
 Kotlin と Gradle を使うリポジトリ向けのサンプルは
-[`codeql-kotlin-gradle.yml`](/home/shuji/git/shusatoo/security-workflows/.github/workflow-templates/codeql-kotlin-gradle.yml)
+[`codeql-kotlin-gradle.yml`](./.github/workflow-templates/codeql-kotlin-gradle.yml)
 です。
 
 このサンプルをベースに、各リポジトリで `build-command` などを必要に応じて調整して使ってください。
