@@ -1,0 +1,5 @@
+{
+  "name": "CodeQL for Kotlin with Gradle",
+  "description": "Use the shared CodeQL workflow for Kotlin repositories built with Gradle.",
+  "iconName": "security"
+}
