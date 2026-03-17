@@ -1,0 +1,95 @@
+# workflow の表示名。
+name: Notify Code Scanning Alerts
+
+on:
+  # reusable workflow として他リポジトリから呼び出せるようにする。
+  workflow_call:
+    inputs:
+      # 通知ジョブを動かす runner の種類。
+      runs-on:
+        description: Runner image used for the notification job.
+        required: false
+        type: string
+        default: ubuntu-latest
+      # Slack メッセージ内に載せる alert の最大件数。
+      max-alerts-in-message:
+        description: Maximum number of alerts included in the Slack message body.
+        required: false
+        type: number
+        default: 5
+    secrets:
+      # Slack Incoming Webhook URL。
+      slack_webhook_url:
+        description: Slack Incoming Webhook URL used for notifications.
+        required: true
+
+jobs:
+  notify:
+    # code scanning alerts を取得して通知するジョブ。
+    runs-on: ${{ inputs.runs-on }}
+
+    permissions:
+      # code scanning alerts API を読むために必要。
+      security-events: read
+
+    steps:
+      # GitHub API から open 状態の code scanning alerts を取得する。
+      - name: Fetch open code scanning alerts
+        id: fetch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          MAX_ALERTS: ${{ inputs.max-alerts-in-message }}
+        run: |
+          response=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GH_REPOSITORY}/code-scanning/alerts?state=open&per_page=100")
+
+          count=$(printf '%s' "${response}" | jq 'length')
+          echo "count=${count}" >> "${GITHUB_OUTPUT}"
+
+          if [ "${count}" -gt 0 ]; then
+            summary=$(printf '%s' "${response}" | jq -r --argjson max "${MAX_ALERTS}" '
+              .[:$max]
+              | map("- [\(.rule.severity // "unknown")] \(.rule.id // "unknown") @ \(.most_recent_instance.location.path // "unknown")")
+              | join("\n")
+            ')
+          else
+            summary=""
+          fi
+
+          {
+            echo "summary<<EOF"
+            printf '%s\n' "${summary}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
+
+      # open alert が存在するときだけ Slack へ通知する。
+      - name: Send Slack notification
+        if: steps.fetch.outputs.count != '0'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.slack_webhook_url }}
+          ALERT_COUNT: ${{ steps.fetch.outputs.count }}
+          ALERT_SUMMARY: ${{ steps.fetch.outputs.summary }}
+          REPOSITORY: ${{ github.repository }}
+          ALERTS_URL: ${{ github.server_url }}/${{ github.repository }}/security/code-scanning
+        run: |
+          payload=$(jq -n \
+            --arg repository "${REPOSITORY}" \
+            --arg count "${ALERT_COUNT}" \
+            --arg summary "${ALERT_SUMMARY}" \
+            --arg alerts_url "${ALERTS_URL}" \
+            '{
+              text:
+                ("Code scanning alerts are open for " + $repository + ".\n" +
+                 "Open alerts: " + $count + "\n" +
+                 $summary + "\n" +
+                 "View alerts: " + $alerts_url)
+            }')
+
+          curl -fsSL -X POST \
+            -H "Content-Type: application/json" \
+            --data "${payload}" \
+            "${SLACK_WEBHOOK_URL}"
