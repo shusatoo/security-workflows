@@ -91,3 +91,33 @@ jobs:
 必要な secrets:
 
 - `SLACK_WEBHOOK_URL`
+
+補足:
+
+- 上記サンプルをそのまま使う場合、Slack Incoming Webhook URL は呼び出し元リポジトリの GitHub Actions Secrets に保存します
+- つまり、ワークフロー定義ファイルに平文で書く必要はありませんが、secret情報を GitHub に保存する構成です
+- 各リポジトリへ個別に保存したくない場合は、`Organization secrets` や `Environment secrets` に集約する運用もできます
+
+### GitHub Secrets に保存されることを明記したサンプル
+
+以下は、`SLACK_WEBHOOK_URL` を GitHub Actions Secrets に保存して使う例です。
+
+```yaml
+name: Notify Code Scanning Alerts
+
+on:
+  schedule:
+    - cron: '0 21 * * 1'
+
+jobs:
+  notify:
+    uses: [organization]/security-workflows/.github/workflows/notify-code-scanning-alerts.yml@v1
+    secrets:
+      # Slack Incoming Webhook URL は GitHub Actions Secrets に保存して参照する。
+      slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+この場合、`SLACK_WEBHOOK_URL` は呼び出し元リポジトリの `Repository secrets`、 または組織共通で使う場合は `Organization secrets` に登録します。
+
+GitHub に Slack Webhook URL を保存したくない場合は、外部の parameter / secret 管理サービス（Google Cloud の Secret Manager等）から実行時に取得する構成にします。
+その場合、このサンプルではそのまま使えず、別途実装が必要です。
