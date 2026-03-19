@@ -83,6 +83,8 @@ on:
 
 jobs:
   notify:
+    permissions:
+      security-events: read
     uses: [organization]/security-workflows/.github/workflows/notify-code-scanning-alerts.yml@v1
     secrets:
       slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
