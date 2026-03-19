@@ -90,7 +90,7 @@ jobs:
 
 必要な secrets:
 
-- `SLACK_WEBHOOK_URL`
+- 例: `SLACK_WEBHOOK_URL`, `NOTIFY_WARN_URL`
 
 補足:
 
